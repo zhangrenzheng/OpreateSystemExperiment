@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #define N 10
+#define _DEBUG_MODE                                     //Comment this line to cancel debugging
 
 typedef struct {
     int value;
@@ -42,14 +43,18 @@ int temp = 0;
 void *t(void *arg)
 {
     sema_wait(&mutex_sema);
-    //printf("DEBUG temp = %d\n", temp);
-    sema_wait(&t_mutex[temp]);
+#ifdef _DEBUG_MODE
+    printf("# DEBUG_MODE: temp = %d\n", temp);
+#endif
+    sema_wait(&t_mutex[temp % N]);
 
-    printf("Thread %d Receive: %d\n", temp + 1, number);
+    printf("Thread %d Receive: %d\n", (temp + 1) % N, number);
     ++ number;
-    printf("    Thread %d Send: %d\n", temp + 1, number);
+    printf("    Thread %d Send: %d\n", (temp + 1) % N, number);
 
-    sema_signal(&t_mutex[++ temp]);
+    t_mutex[temp % N].value = 0;
+    
+    sema_signal(&t_mutex[(++ temp) % N]);
     sema_signal(&mutex_sema);
 
     return NULL;
@@ -65,10 +70,12 @@ int main()
     for(i = 1; i < N; ++ i)
         sema_init(&t_mutex[i], 0);
     
-    for(i = 0; i < N; ++ i)
-        pthread_create(&t_tid[i], NULL, t, (void *)&temp);
+    for(i = 0; i < (2 * N); ++ i)
+        pthread_create(&t_tid[i % N], NULL, t, (void *)&temp);
+
     for(i = 0; i < N; ++ i)
         pthread_join(t_tid[i], NULL);
 
     return 0;
 }
+
